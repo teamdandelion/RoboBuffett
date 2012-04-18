@@ -1,6 +1,7 @@
 from ftplib import FTP
 import os
 import sys
+import zipfile
 
 def connect_to_SEC(index):
     if index > 50:
@@ -60,4 +61,7 @@ for year in years:
         for path in filepaths:
             with open(path,'w') as outfile:
                 ftp.retrbinary('RETR ' + path, outfile.write)
+            with zipfile.ZipFile(path, 'r') as outzip:
+                outzip.extractall(subdir)
+            os.remove(path)
 
