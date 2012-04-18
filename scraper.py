@@ -41,13 +41,19 @@ quarters = ['QTR1', 'QTR2', 'QTR3', 'QTR4']
 index_path = '/edgar/full-index'
 ftp.cwd(index_path)
 
-def downloadfile(serverpath, file):
-    command = 'RETR ' + serverpath.strip()
-    content = ftp.retrbinary(command, lambda s: file.write(s + '\n'))
+def downloadfile(serverpath, local_path):
+    with open (local_path, 'w') as outfile:
+        command = 'RETR ' + serverpath.strip()
+        ftp.retrbinary(command, outfile.write)
 
 def ensure(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
+
+def extract_and_remove(zip_path, out_dir):
+    with zipfile.ZipFile(zip_path, 'r') as outzip:
+        outzip.extractall(subdir)
+    os.remove(zip_path)
 
 out_dir = sys.argv[1]
 ensure(out_dir)
@@ -57,11 +63,40 @@ for year in years:
     for quarter in quarters:
         subdir = year + '/' + quarter
         ensure(subdir)
-        filepaths = [subdir + '/' + f for f in ('form.zip', 'master.zip', 'company.zip')]
+        filepaths = [subdir + '/' + f for f in ('form.zip')]
         for path in filepaths:
-            with open(path,'w') as outfile:
-                ftp.retrbinary('RETR ' + path, outfile.write)
-            with zipfile.ZipFile(path, 'r') as outzip:
-                outzip.extractall(subdir)
-            os.remove(path)
+            downloadfile(path, path)
+            extract_and_remove(path, subdir)
+
+
+def download_10ks(data_directory):
+    global ftp
+    for root, dirs, files in os.walk(data_directory):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
