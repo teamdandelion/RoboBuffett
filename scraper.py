@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from ftplib import FTP
 import os
 import sys
@@ -17,6 +19,21 @@ def connect_to_SEC(index):
             print "Connection refused on attempt {0}. Trying again...".format(index)
             return connect_to_SEC(index + 1)
 
+<<<<<<< HEAD
+=======
+ftp = connect_to_SEC(0)
+ftp.login()
+
+def str_year_range(startYear, endYear):
+    return map(str,range(startYear, endYear + 1))
+
+years = str_year_range(1999, 2012) #1999 to 2012 inclusive
+
+quarters = ['QTR1', 'QTR2', 'QTR3', 'QTR4']
+index_path = '/edgar/full-index'
+ftp.cwd(index_path)
+
+>>>>>>> d01f96683923d7fa8a34208a88ba2c36d567a751
 def download_file(serverpath, local_path):
     global ftp
     with open (local_path, 'w') as out_file:
@@ -32,6 +49,7 @@ def extract_and_remove(zip_path, out_dir):
         outzip.extractall(out_dir)
     os.remove(zip_path)
 
+<<<<<<< HEAD
 def download_index_files(out_dir):
     years = ['1993', '1994', '1995', '1996', 
              '1997', '1998', '1999', '2000', 
@@ -57,6 +75,21 @@ def download_index_files(out_dir):
 
     os.chdir(old_cwd)
 
+=======
+out_dir = sys.argv[1]
+ensure(out_dir)
+os.chdir(out_dir)
+
+for year in years:
+    for quarter in quarters:
+        subdir = year + '/' + quarter
+        ensure(subdir)
+        filepaths = [subdir + '/' + f for f in ('form.zip')]
+        for path in filepaths:
+            download_file(path, path)
+            extract_and_remove(path, subdir)
+
+>>>>>>> d01f96683923d7fa8a34208a88ba2c36d567a751
 
 def split_list(xs, y, eq_func=lambda a, b: a == b):
     for i, x in enumerate(xs):
