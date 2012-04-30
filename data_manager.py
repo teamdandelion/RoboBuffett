@@ -48,7 +48,7 @@ class document:
 
 class company_quarter: 
 	'''
-	Maintains information pertaining to 1 company at a specific moment of time... corresponds closely to the document class, but won't contain the text of the document for space efficiency
+	Maintains information pertaining to 1 company at a specific moment of time... corresponds closely to the document class, but won't contain the text of the document for space efficiency. So financial_universe will store company_quarters, and each company_quarter will have a reference to the location of the document.
 	'''
 	def __init__(self, company, quarter):
 		self.companyID = company.ID
