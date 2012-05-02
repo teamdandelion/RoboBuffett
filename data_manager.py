@@ -9,16 +9,19 @@ class financial_universe:
 	Perhaps we will want to include the word frequency counts since they will require less space. Will have to see whether it's practical.
 	'''
 	def __init__(self):
-		self.firms  = {}
+		self.companies  = {}
 		self.industries = {}
-		for document in ourSECDocuments:
-			if document.firmID not in self.firms:
-				self.firms[firmID] = firm(document) # Create a new company entry based on the document
-				if document.industryID not in self.industries:
-
-
+		for document in our_SEC_Documents:
+			company_quarter = make_company_quarter(document)
+			if company_quarter.companyID not in self.companies:
+				self.companies[companyID] = make_company(document) # Create a new company entry based on the document
 			else:
-				self.firms[firmID].add_new_document(document)
+				self.companies[companyID].add_quarter
+
+			if document.industryID not in self.industries:
+				self.industries[industryID] = industry(document) #Create a new industry entry
+			else
+				self.industries[industryID].add_new_document()
 
 
 	def add_new_company(self, company):
@@ -27,13 +30,21 @@ class financial_universe:
 class company:
 	def __init__(self):
 		company.industry = #Parse the document to get a SIC industry code
-		company.duration = #(startQuarter, endQuarter) showing when data begins and when data ends
+		company.timerange = #(startQuarter, endQuarter) showing when data begins and when data ends. e.g. (2002.75, 2012.25)
 		company.quarters = {2002.25: company_quarter, ...}#dict of company_quarter objects indexed by the quarter
 
 class industry:
 	def __init__(self):
 		industry.components = 
 
+class quarter:
+	def __init__(self, document):
+		self.companyID = company.ID
+		self.quarterID   = quarter #e.g. 2002.25
+		self.industryID  = company.industry
+		self.filingdate  = document.filingDate
+		self.opening_price = get_opening_price(company, filingdate)
+ # Pull information from the document to populate the 
 
 class document:
 	def __init__(self):
@@ -44,22 +55,3 @@ class document:
 		document.quarter = 
 		document.wordfreq = #dict of word frequences
 		document.wordcount = 
-
-
-class company_quarter: 
-	'''
-	Maintains information pertaining to 1 company at a specific moment of time... corresponds closely to the document class, but won't contain the text of the document for space efficiency. So financial_universe will store company_quarters, and each company_quarter will have a reference to the location of the document.
-	'''
-	def __init__(self, company, quarter):
-		self.companyID = company.ID
-		self.quarter   = quarter
-		self.industry  = company.industry
-		self.filingdate  = company.get_filingdate(quarter)
-		self.opening_price = get_opening_price(company, filingdate)
-
-
-
-
-
-
-def threshold_classification(companyID, quarter, duration)
