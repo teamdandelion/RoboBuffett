@@ -47,11 +47,62 @@ class quarter:
  # Pull information from the document to populate the 
 
 class document:
-	def __init__(self):
+	def __init__(self, docpath, doctype):
 		'''Populate the following'''
-		document.company = # Ref to Company (unique references)
+		self.type = doctype
+		self.properties = {}
+		try:
+			file = open(docpath, 'r')
+		except IOError:
+			print "Bad file path ", docpath
+			return 0
+
+
+		if document.type in ('10-Q', '10-K'):
+			document.parse_quarterly_filing()
+		else:
+			print "Document not supported: %s type %s" % (docpath, doctype)
+
+	def parse_quarterly_filing(self):
+		for line in file:
+			line = line.strip()
+			if self.grab_property(line, '', 'CONFORMED SUBMISSION TYPE:') != self.type:
+				print "Error: Document %s reported type %s does not match discovered type %s" % docpath
+				return
+			# Make a for-loop of tuples
+			properties = [('FilingDate', 'FILED AS OF DATE:', True),
+						  ]
+			self.grab_property(line, 'FilingDate', 'FILED AS OF DATE:', True)
+			self.grab_property(line, 'CIK', 'Central Index Key:', True)
+			self.grab_property(line, 'SIC', 'STANDARD INDUSTRIAL CLASSIFICIATION:', True)
+			self.grab_property(line, 'IRS_Num', 'IRS NUMBER:', True)
+			self.grab_property(line, 'FY_End', 'FISCAL YEAR END:', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+			self.grab_property(line, '', ':', True)
+
+
+		document.companyID = # Ref to Company (unique references)
+		document.central_index_key =
+		document.irs_number =
 		document.industryID = #SIC code pulled from the document
 		document.filingDate = 
 		document.quarter = 
 		document.wordfreq = #dict of word frequences
 		document.wordcount = 
+
+	def grab_property(self, line, propertyname, propertytag, isInt=False,):
+		if line.startswith(propertytag):
+			content = line.partition(propertytag)[2].strip()
+			if isInt: content = int(content)
+			if propertyname == '':
+				return content
+			else:
+				self.properties[propertyname] = content
