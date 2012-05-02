@@ -52,10 +52,10 @@ class document:
 		self.type = doctype
 		self.properties = {}
 		try:
-			file = open(docpath, 'r')
+			self.file = open(docpath, 'r')
 		except IOError:
 			print "Bad file path ", docpath
-			return 0
+			return 02
 
 
 		if document.type in ('10-Q', '10-K'):
@@ -64,30 +64,30 @@ class document:
 			print "Document not supported: %s type %s" % (docpath, doctype)
 
 	def parse_quarterly_filing(self):
-		for line in file:
+		property_info = ( 
+		  #DictionaryName,    FilingText,                          isNumber
+		 ('DocType',         'CONFORMED SUBMISSION TYPE:',          False),
+		 ('ReportingPeriod', 'CONFORMED PERIOD OF REPORT:',         True ),
+		 ('FilingDate',      'FILED AS OF DATE:',                   True ),
+	 	 ('CompanyName',     'COMPANY CONFORMED NAME:',             False),
+		 ('CIK',             'CENTRAL INDEX KEY',                   True ),
+		 ('SIC',             'STANDARD INDUSTRIAL CLASSIFICATION:', True ),
+		 ('IRS_Num',         'IRS NUMBER:',                         True ),
+		 ('FY_End',          'FISCAL YEAR END:',                    True ),
+		 ('SEC_FileNo',      'SEC FILE NUMBER:',                    False))
+		# Defines the properties to seek in the header of the filing, and names to assign them to in the self.properties dictionary. I hope Python doesn't waste time re-creating this tuple every time parse_quarterly_filing is called.
+		i = 0
+		'Process the file line by line to get header info'
+		for line in self.file:
 			line = line.strip()
-			if self.grab_property(line, '', 'CONFORMED SUBMISSION TYPE:') != self.type:
-				print "Error: Document %s reported type %s does not match discovered type %s" % docpath
-				return
-			# Make a for-loop of tuples
-			properties = [('FilingDate', 'FILED AS OF DATE:', True),
-						  ]
-			self.grab_property(line, 'FilingDate', 'FILED AS OF DATE:', True)
-			self.grab_property(line, 'CIK', 'Central Index Key:', True)
-			self.grab_property(line, 'SIC', 'STANDARD INDUSTRIAL CLASSIFICIATION:', True)
-			self.grab_property(line, 'IRS_Num', 'IRS NUMBER:', True)
-			self.grab_property(line, 'FY_End', 'FISCAL YEAR END:', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
-			self.grab_property(line, '', ':', True)
+			if self.grab_property(line, *property_info[i]):
+				i += 1
+				if i = len(property_info):
+					break
 
+		'Now grab the entire document and process it to make a wordfreq'
+		text = self.file.read.split()
+		
 
 		document.companyID = # Ref to Company (unique references)
 		document.central_index_key =
@@ -102,7 +102,6 @@ class document:
 		if line.startswith(propertytag):
 			content = line.partition(propertytag)[2].strip()
 			if isInt: content = int(content)
-			if propertyname == '':
-				return content
-			else:
+			if propertyname != '':
 				self.properties[propertyname] = content
+			return content
