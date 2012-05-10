@@ -44,15 +44,40 @@ class Financial_Universe:
 		for doc in self.documents:
 			sum += doc.word_count
 		self.word_count = sum
-		self.doc_count = len(self.documents)
-		self.co_count = len(self.companies)
+		self.doc_count  = len(self.documents)
+		self.co_count   = len(self.companies)
 		self.indy_count = len(self.industries)
+
+	def generate_word_index(self, threshold):
+		# Threshold in (0, 1)
+		dict_index = {}
+		threshold *= self.doc_count
+		for document in self.documents:
+			for word in document.word_freq.iterkeys():
+				try: 
+					dictindex[word] += 1
+				except KeyError:
+					dictindex[word]  = 1
+		self.index_list = []
+		for word, val in dictindex.iteritems():
+			if val > threshold:
+				self.index_list.append(word)
+		del dictindex
+		self.index_list.sort()
+		self.index_dict = {}
+		for i in xrange(len(self.index_list)):
+			self.index_dict[index_list[i]] = i
+
+		
+
+
+
 
 
 class Company:
 	def __init__(self, document):
-		self.CIK = document.CIK
-		self.SIC = document.SIC
+		self.CIK = [document.CIK]
+		self.SIC = document.SIC]
 		self.documents = [(document.date, document)]
 		self.name = document.cname
 
@@ -90,7 +115,7 @@ class Document:
 		'''Populate the following'''
 		self.path = docpath
 		self.properties = {}
-		self.word_freq = {}
+		self.word_freq  = {}
 		self.word_count = {}
 		try:
 			self.docfile = open(docpath, 'r')
@@ -113,16 +138,16 @@ class Document:
 	def parse_quarterly_filing(self):
 		'Define the properties we want to grab from the filing'
 		property_info = ( 
-		  #DictionaryName,    FilingText,                          isNumber
-		 ('DocType',         'CONFORMED SUBMISSION TYPE:',          False),
-		 ('ReportingPeriod', 'CONFORMED PERIOD OF REPORT:',         False),
-		 ('FilingDate',      'FILED AS OF DATE:',                   False),
-	 	 ('CompanyName',     'COMPANY CONFORMED NAME:',             False),
-		 ('CIK',             'CENTRAL INDEX KEY:',                  True ),
-		 ('SIC',             'STANDARD INDUSTRIAL CLASSIFICATION:', True ),
-		 ('IRS_Num',         'IRS NUMBER:',                         True ),
-		 ('FY_End',          'FISCAL YEAR END:',                    True ),
-		 ('SEC_FileNo',      'SEC FILE NUMBER:',                    False))
+		  #DictionaryName,    FilingText,                   int, list
+		 ('DocType',         'CONFORMED SUBMISSION TYPE:',   0,   0),
+		 ('ReportingPeriod', 'CONFORMED PERIOD OF REPORT:',  0,   0),
+		 ('FilingDate',      'FILED AS OF DATE:',            0,   0),
+	 	 ('CompanyName',     'COMPANY CONFORMED NAME:',      0,   1),
+		 ('CIK',             'CENTRAL INDEX KEY:',           1,   1),
+		 ('SIC',      'STANDARD INDUSTRIAL CLASSIFICATION:', 1,   1),
+		 ('IRS_Num',         'IRS NUMBER:',                  1,   1),
+		 ('FY_End',          'FISCAL YEAR END:',             1,   1),
+		 ('SEC_FileNo',      'SEC FILE NUMBER:',             1,   1))
 		# Defines the properties to seek in the header of the filing, and names to assign them to in the self.properties dictionary. I hope Python doesn't waste time re-creating this tuple every time parse_quarterly_filing is called.
 		# The last condition 'Item 1. B' triggers when we have parsed all the header info and are into the actual document. Since the dictionaryName is '' it won't store anything, but it returns a nonzero value so that the loop will break
 
@@ -169,7 +194,7 @@ class Document:
 				self.word_freq[word] = 1
 		# This try, except method may be somewhat more efficient than if-then branching for unigram processing. For n-grams, perhaps better to use if-then.
 
-	def grab_property(self, line, propertyname, propertytag, isInt=False):
+	def grab_property(self, line, propertyname, propertytag, isInt=0, isList=0):
 		if line.startswith(propertytag):
 			content = line.partition(propertytag)[2].strip()
 			if isInt: 

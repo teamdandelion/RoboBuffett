@@ -1,0 +1,6 @@
+Data/*
+testdoc
+*.csv
+*.pyc
+*.log
+*.dat

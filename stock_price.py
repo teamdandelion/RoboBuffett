@@ -81,7 +81,8 @@ def vectorize_csv(ticker,output_dir):
 # respective directory
 def download_csv(ticker,output_dir):
 	# Build URL string
-	start_year = '1950'
+	start_year = '1993' 
+	#Don't need price data older than our filings
 	now = datetime.now()
 
 	url_string = 'http://ichart.finance.yahoo.com/table.csv?'
