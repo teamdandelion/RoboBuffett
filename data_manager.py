@@ -22,13 +22,16 @@ class Financial_Universe:
 			if doc_path[0] == ".": continue
 			newdoc = Document(data_dir + doc_path, 'SEC_Quarterly')
 			self.documents.append(newdoc)
-			CIK = newdoc.CIK[0] # CIKs stored as a list since there may be several
-			"""***TODO:***: Better system for handling CIKs, integrate with stock tickers"""
+			
+			for i in xrange(len(newdoc.CIK)):
+				CIK = newdoc.CIK[i] 
+				# CIKs stored as a list since there may be several
+				"""***TODO:***: Better system for handling CIKs, integrate with stock tickers"""
 
-			if CIK not in self.companies:
-				self.companies[CIK] = Company(newdoc) # Create a new company entry based on the document
-			else:
-				self.companies[CIK].add_document(newdoc)
+				if CIK not in self.companies:
+					self.companies[CIK] = Company(newdoc, i) # Create a new company entry based on the document
+				else:
+					self.companies[CIK].add_document(newdoc, i)
 
 		for CIK, company in self.companies.iteritems():
 			if CIK not in self.industries:
@@ -70,21 +73,21 @@ class Financial_Universe:
 		self.indexed = 1
 
 class Company:
-	def __init__(self, document):
-		self.CIK = document.CIK
-		self.SIC = document.SIC
+	def __init__(self, document, idx):
+		self.CIK = document.CIK[idx]
+		self.SIC = document.SIC[idx]
 		self.documents = [(document.date, document)]
-		self.name = document.cname
+		self.name = document.cname[idx]
 
 	def __repr__(self):
 		return "<COMPANY>" + self.name[0] # Currently names are stored as a list as there may be multiple. Not a super satisfactory solution
 
 	def add_document(self, document):
 		self.documents.append((document.date, document))
-		if document.cname != company.name:
+		if document.cname[idx] != company.name:
 			print "Name discrepancy: %s, %s" % (company.name, document.cname)
 			logging.debug("Name discrepancy: %s, %s" % (company.name, document.cname))
-		if document.SIC != company.SIC:
+		if document.SIC[idx] != company.SIC:
 			print "SIC discrepancy: %d %d" % (company.SIC, document.SIC)
 			logging.debug("SIC discrepancy: %d %d" % (company.SIC, document.SIC))
 
@@ -145,6 +148,24 @@ class Document:
 		self.parse_quarterly_header(header)
 		self.build_word_freq(text)
 
+	def build_word_freq(self, text):
+		to_remove = string.punctuation + string.digits
+		text = text.translate(None, (to_remove))
+		# Removes all punctuation and digits
+		text = text.lower()
+		text = text.split()
+		# Splits the text into a list of lowercase words
+		# Possible improvements: Strip tables, formatting (e.g. <PAGE>, - 2 -)
+		self.word_count = len(text)
+		for word in text:
+			try: 
+				self.word_freq[word] += 1
+			except KeyError:
+				self.word_freq[word] = 1
+		# This try/except method may be somewhat more efficient than if-then branching for unigram processing. For n-grams, perhaps better to use if-then.
+
+	#def compress(self, ilist, idict):
+
 	def parse_quarterly_header(self, header):
 		property_info = ( 
 		  #DictionaryName,    FilingText,                   int   list
@@ -174,22 +195,6 @@ class Document:
 		self.CIK   = self.properties['CIK'] # A list
 		self.SIC   = self.properties['SIC'] # A list
 		self.cname = self.properties['CompanyName'] # A list
-
-	def build_word_freq(self, text):
-		to_remove = string.punctuation + string.digits
-		text = text.translate(None, (to_remove))
-		# Removes all punctuation and digits
-		text = text.lower()
-		text = text.split()
-		# Splits the text into a list of lowercase words
-		# Possible improvements: Strip tables, formatting (e.g. <PAGE>, - 2 -)
-		self.word_count = len(text)
-		for word in text:
-			try: 
-				self.word_freq[word] += 1
-			except KeyError:
-				self.word_freq[word] = 1
-		# This try/except method may be somewhat more efficient than if-then branching for unigram processing. For n-grams, perhaps better to use if-then.
 
 	def grab_property(self, line, name, identifier, isInt=0, isList=0):
 		"""Checks LINE for IDENTIFIER. If IDENTIFIER is found in the line, then the text immediately after IDENTIFIER is saved in self.properties[PROPNAME]. If the isInt flag is set, then the content is converted to an integer value. If it doesn't convert to int cleanly, then non-digits characters are stripped, it's force converted, and a note is made in the log. In text mode, leading or trailing whitespace around the content is also removed. grab_property returns the content that it stores. If PROPNAME is "" then no value is stored, but the content is still returned."""
@@ -232,7 +237,7 @@ def main():
 		data_dir = argv[1]
 
 	with open('./data_manager.log', 'w') as cleanlog:
-		pass
+		pass # Empty the log before each run
 
 	logging.basicConfig(filename='data_manager.log', level=logging.DEBUG)
 	universe = Financial_Universe(data_dir)
@@ -241,7 +246,7 @@ def main():
 	logging.info("Statistics: %d documents, %d companies %d industries %d words" % (universe.doc_count, universe.co_count, universe.indy_count, universe.word_count))
 	with open('./universe.dat', 'w') as f:
 		pickle.dump(universe, f, 2)
-	debug()
+	#debug()
 
 if __name__ == "__main__":
 	main()
