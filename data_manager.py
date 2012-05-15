@@ -5,6 +5,8 @@ This module manages and maintains data for RoboBuffett
 import os, sys, logging, string
 from datetime import date, timedelta
 from pdb import set_trace as debug
+from collections import Counter
+# Note: Using Counter on the test dataset increased the pickled size from 1.3mb to 1.8mb
 try:
 	import cPickle as pickle
 except:
@@ -18,10 +20,14 @@ class Financial_Universe:
 		self.companies  = {}
 		self.industries = {}
 		self.documents  = []
+		num_docs = len(os.listdir(data_dir))
+		print "Num docs: %d" % num_docs
+		docs_counted = 0
 		for doc_path in os.listdir(data_dir):
 			if doc_path[0] == ".": continue
 			newdoc = Document(data_dir + doc_path, 'SEC_Quarterly')
 			self.documents.append(newdoc)
+			docs_counted += 1
 			
 			for i in xrange(len(newdoc.CIK)):
 				CIK = newdoc.CIK[i] 
@@ -32,6 +38,8 @@ class Financial_Universe:
 					self.companies[CIK] = Company(newdoc, i) # Create a new company entry based on the document
 				else:
 					self.companies[CIK].add_document(newdoc, i)
+			if docs_counted % 100 == 0:
+				print "Docs processed %d" % docs_counted
 
 		for CIK, company in self.companies.iteritems():
 			if CIK not in self.industries:
@@ -43,18 +51,18 @@ class Financial_Universe:
 	def get_counts(self):
 		sum = 0
 		for doc in self.documents:
-			sum += doc.word_count
-		self.word_count = sum
-		self.doc_count  = len(self.documents)
-		self.co_count   = len(self.companies)
-		self.indy_count = len(self.industries)
+			sum += doc.num_words
+		self.num_words = sum
+		self.num_docs  = len(self.documents)
+		self.num_companies   = len(self.companies)
+		self.num_industries = len(self.industries)
 
 	def generate_word_index(self, threshold):
 		"""Generates an index of commonly used words in the documents, so that the documents can be stored in compressed form. We can remove all instances of commonly used words from the dictionaries, and add a k-tuple of word counts, where k is the number of commonly used words. THRESHOLD determines what proportion of documents a word must be in for it to be included in the list.
 		Creates self.index_list, an ordered list of words in the index. Creates self.index_dict which maps from element indicies back to the right word in the sequence. Sets self.indexed = 1."""
 		# Threshold in (0, 1)
 		dict_index = {}
-		threshold *= self.doc_count
+		threshold *= self.num_docs
 		for document in self.documents:
 			for word in document.word_freq.iterkeys():
 				try: 
@@ -111,7 +119,7 @@ class Document:
 		self.path = docpath
 		self.properties = {}
 		self.word_freq  = {}
-		self.word_count = {}
+		self.num_words = {}
 		try:
 			self.docfile = open(docpath, 'r')
 		except IOError:
@@ -137,7 +145,9 @@ class Document:
 
 		logging.info("Parsing quarterly filing %s" % self.path)
 		partition_text = 'PART I'
-		text = self.docfile.read().partition(partition_text)
+		text = self.docfile.read()
+		debug()
+		text = text.partition(partition_text)
 		# Currently I partition it into Header and Body by seperating at the first instance of the text 'PART I'. I consider this a placeholder
 		if text[1] != partition_text:
 			print "Warning: Unable to partition %s" % self.path
@@ -156,12 +166,13 @@ class Document:
 		text = text.split()
 		# Splits the text into a list of lowercase words
 		# Possible improvements: Strip tables, formatting (e.g. <PAGE>, - 2 -)
-		self.word_count = len(text)
+		self.num_words = len(text)
+		self.word_count = {}
 		for word in text:
 			try: 
-				self.word_freq[word] += 1
+				self.word_count[word] += 1
 			except KeyError:
-				self.word_freq[word] = 1
+				self.word_count[word] = 1
 		# This try/except method may be somewhat more efficient than if-then branching for unigram processing. For n-grams, perhaps better to use if-then.
 
 	#def compress(self, ilist, idict):
@@ -188,13 +199,23 @@ class Document:
 			msg = "Found %d of %d fields" % (len(self.properties), len(property_info))
 			logging.warning(msg)
 		
-		self.convert_property_to_date('ReportingPeriod')
-		self.convert_property_to_date('FilingDate')
-		self.date  = self.properties['FilingDate']
-		self.type  = self.properties['DocType']
-		self.CIK   = self.properties['CIK'] # A list
-		self.SIC   = self.properties['SIC'] # A list
-		self.cname = self.properties['CompanyName'] # A list
+		try:
+			self.convert_property_to_date('ReportingPeriod')
+		except KeyError:
+			logging.warning("Doc has no reporting period")
+		try:
+			self.convert_property_to_date('FilingDate')
+			self.date  = self.properties['FilingDate']
+		except KeyError:
+			logging.error("Doc has no filing date!")
+			print "Doc %s has no filing date!" % self.path
+		try:
+			self.type  = self.properties['DocType']
+			self.CIK   = self.properties['CIK'] # A list
+			self.SIC   = self.properties['SIC'] # A list
+			self.cname = self.properties['CompanyName'] # A list
+		except KeyError as e:
+			logging.error(e)
 
 	def grab_property(self, line, name, identifier, isInt=0, isList=0):
 		"""Checks LINE for IDENTIFIER. If IDENTIFIER is found in the line, then the text immediately after IDENTIFIER is saved in self.properties[PROPNAME]. If the isInt flag is set, then the content is converted to an integer value. If it doesn't convert to int cleanly, then non-digits characters are stripped, it's force converted, and a note is made in the log. In text mode, leading or trailing whitespace around the content is also removed. grab_property returns the content that it stores. If PROPNAME is "" then no value is stored, but the content is still returned."""
@@ -232,7 +253,7 @@ class Document:
 
 def main():
 	if len(sys.argv) == 1:
-		data_dir = "./Data/"
+		data_dir = "./BigData/"
 	else:
 		data_dir = argv[1]
 
@@ -242,8 +263,8 @@ def main():
 	logging.basicConfig(filename='data_manager.log', level=logging.DEBUG)
 	universe = Financial_Universe(data_dir)
 
-	print "Statistics: %d documents, %d companies %d industries %d words" % (universe.doc_count, universe.co_count, universe.indy_count, universe.word_count)
-	logging.info("Statistics: %d documents, %d companies %d industries %d words" % (universe.doc_count, universe.co_count, universe.indy_count, universe.word_count))
+	print "Statistics: %d documents, %d companies %d industries %d words" % (universe.num_docs, universe.num_companies, universe.num_industries, universe.num_words)
+	logging.info("Statistics: %d documents, %d companies %d industries %d words" % (universe.num_docs, universe.num_companies, universe.num_industries, universe.num_words))
 	with open('./universe.dat', 'w') as f:
 		pickle.dump(universe, f, 2)
 	#debug()
