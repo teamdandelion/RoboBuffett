@@ -3,6 +3,8 @@
 
 #Tickers will be (Exchange, Ticker) tuples, e.g. ('NYSE', 'GS').
 
+#Prices will be integer values with 100 = $1 conversion. Thus Apple's price of $558.22 becomes 55822.
+
 def ticker_to_CIK(ticker):
     #TODO: Define this function
     #Return CIK if valid ticker, raise an error otherwise
@@ -24,3 +26,4 @@ def get_volume(ticker, date):
 
 def get_marketcap(ticker, date):
     # Return market cap on closest defined day, raise an exception if not defined at all in a 12 month span
+
