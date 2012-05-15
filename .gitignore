@@ -4,3 +4,4 @@ testdoc
 *.pyc
 *.log
 *.dat
+TestData/*
