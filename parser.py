@@ -43,17 +43,16 @@ def parse_quarterly_filing(filepath):
      ('FY_End',          'FISCAL YEAR END:'                   ),
      ('SEC_FileNo',      'SEC FILE NUMBER:'                   ))
 
-    header =  parse_header(header_text, header_info)
-    filers_parse = [parse_header(x, filer_info) for x in filers]
+    header =  parse_fields(header_text, header_info)
+    filers_parse = [parse_fields(x, filer_info) for x in filers]
 
     filers = {}
     for filer in filers_parse:
         filers[filer['CIK']] = filer
 
-    word_count = build_word_count(document_text)
+    #word_count = build_word_count(document_text)
 
-    return (header, filers, word_count)
-
+    return (header, filers, document_text)
 
 def build_word_count(text):
     to_remove = string.punctuation + string.digits
@@ -72,7 +71,7 @@ def build_word_count(text):
     # This try/except method may be somewhat more efficient than if-then branching for unigram processing. For n-grams, perhaps better to use if-then.
     return (word_count, num_words)
 
-def parse_header(header, property_info):
+def parse_fields(header, property_info):
     # Defines the properties to seek in the header of the filing, and names to assign them to in the self.properties dictionary. I hope Python doesn't waste time re-creating this tuple every time parse_quarterly_filing is called.
     properties = {}
     header = header.split('\n')
