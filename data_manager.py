@@ -146,7 +146,7 @@ class Document:
 		logging.info("Parsing quarterly filing %s" % self.path)
 		partition_text = 'PART I'
 		text = self.docfile.read()
-		debug()
+		#debug()
 		text = text.partition(partition_text)
 		# Currently I partition it into Header and Body by seperating at the first instance of the text 'PART I'. I consider this a placeholder
 		if text[1] != partition_text:
@@ -253,7 +253,7 @@ class Document:
 
 def main():
 	if len(sys.argv) == 1:
-		data_dir = "./BigData/"
+		data_dir = "./TestData/Docs_From_1994/"
 	else:
 		data_dir = argv[1]
 
@@ -266,7 +266,7 @@ def main():
 	print "Statistics: %d documents, %d companies %d industries %d words" % (universe.num_docs, universe.num_companies, universe.num_industries, universe.num_words)
 	logging.info("Statistics: %d documents, %d companies %d industries %d words" % (universe.num_docs, universe.num_companies, universe.num_industries, universe.num_words))
 	with open('./universe.dat', 'w') as f:
-		pickle.dump(universe, f, 2)
+		pickle.dump(universe, f, 0)
 	#debug()
 
 if __name__ == "__main__":
