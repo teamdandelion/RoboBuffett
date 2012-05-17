@@ -9,7 +9,7 @@ class Manager(object):
     def __init__(self, RB_Dir):
         self.industries = {}
         self.good_CIKs = stock.good_CIKs()
-        self.active_companies = []
+        self.active_companies = {}
         self.RB_dir = RB_dir
         os.chdir(RB_Dir)
         ensure('Data/')
@@ -17,14 +17,18 @@ class Manager(object):
         ensure('Data/Active/')
         ensure('Data/Inactive/')
         ensure('Data/Unprocessed/')
+        ensure('Data/Preprocessed/')
         ensure('Data/Processed/')
         ensure('Data/Exceptions/')
 
-    def process_documents(self):
+    def organize_documents(self):
+
+
+    def preprocess(self):
         os.chdir('Data/Unprocessed')
         for docpath in os.listdir('.'):
             try:
-                (header, filers, wordcount) = parse_quarterly_filing(docpath)
+                (header, filers) = parse_quarterly_header(docpath)
                 date     = header['FilingDate']
                 doctype  = header['DocType']
                 for CIK in filers.iterkeys():
@@ -48,6 +52,20 @@ class Manager(object):
             # 2. The pickles directory
             # 3. Make a new company
         # If #2, then add to active list. If #3, then add to active list and add SIC to industries.
+        if CIK in self.active_companies:
+            company = self.active_companies[CIK]
+        elif (CIK+'.dat') in os.listdir(self.RB_dir + 'Data/Pickles'):
+            with open(self.RB_dir + 'Data/Pickles/' + CIK + '.dat') as f:
+                company = pickle.load(f)
+            self.active_companies[CIK] = company
+
+        else:
+            company = Company(CIK, SIC)
+            self.active_companies[CIK] = company
+            try: 
+                self.industries[SIC].append(company)
+            except KeyError:
+                self.industries[SIC] = company
 
 
 
