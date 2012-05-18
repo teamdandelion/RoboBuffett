@@ -9,16 +9,18 @@ def parse_quarterly_filing(filepath):
 
     header_ptext = '</IMS-HEADER>' # Break the file at this text
     filer_ptext  = '\nFILER:\n' # Break filer sections at this text
-    partitioned = rawtext.partition(header_ptext)
-    if paritioned[1] != header_ptext:
-        raise DocError('Unable to partition')
+    partitioned = rawtext.partition('</IMS-HEADER>')
+    if partitioned[1] != '</IMS-HEADER>':
+        partitioned = partitioned[0].partition('</SEC-HEADER>')
+        if partitioned[1] != '</SEC-HEADER>':
+            raise DocError('Unable to partition header from body')
 
     header_text = partitioned[0]
     document_text = partitioned[2] # This is important
 
     header_text = header_text.partition(filer_ptext)
     if header_text[1] != filer_ptext:
-        raise DocError('Unable to partition')
+        raise DocError('Unable to partition on %s' % filer_ptext)
     filer_text  = header_text[2].partition(filer_ptext)
     header_text = header_text[0] # This is important
 
@@ -39,8 +41,6 @@ def parse_quarterly_filing(filepath):
      ('CompanyName',     'COMPANY CONFORMED NAME:'            ),
      ('CIK',             'CENTRAL INDEX KEY:'                 ),
      ('SIC',             'STANDARD INDUSTRIAL CLASSIFICATION:'),
-     ('IRS_Num',         'IRS NUMBER:'                        ),
-     ('FY_End',          'FISCAL YEAR END:'                   ),
      ('SEC_FileNo',      'SEC FILE NUMBER:'                   ))
 
     header =  parse_fields(header_text, header_info)
@@ -53,6 +53,7 @@ def parse_quarterly_filing(filepath):
     #word_count = build_word_count(document_text)
 
     return (header, filers, document_text)
+
 
 def build_word_count(text):
     to_remove = string.punctuation + string.digits
@@ -81,8 +82,12 @@ def parse_fields(header, property_info):
             if line.startswith(identifier):
                 content = line.partition(identifier)[2].strip()
                 # Take the content after the identifier, and strip whitespace
-                propertydict[name] = content
+                properties[name] = content
     if len(properties) != len(property_info):
-        raise DocError('Found only %d of %d properties' % (len(properties), len(property_info)))
+        missing_fields = ''
+        for ptuple in property_info:
+            if ptuple[0] not in properties:
+                missing_fields += ',' + ptuple[0]
+        raise DocError('Missing fields: %s' % missing_fields)
 
     return properties
