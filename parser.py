@@ -40,8 +40,7 @@ def parse_quarterly_filing(filepath):
     filer_info = (      
      ('CompanyName',     'COMPANY CONFORMED NAME:'            ),
      ('CIK',             'CENTRAL INDEX KEY:'                 ),
-     ('SIC',             'STANDARD INDUSTRIAL CLASSIFICATION:'),
-     ('SEC_FileNo',      'SEC FILE NUMBER:'                   ))
+     ('SIC',             'STANDARD INDUSTRIAL CLASSIFICATION:'))
 
     header =  parse_fields(header_text, header_info)
     filers_parse = [parse_fields(x, filer_info) for x in filers]
