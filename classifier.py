@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import math
 
 '''Notes:
 The purpose of this module is to assign classification to (company, quarter, duration) tuples. The company will be represented by a unique company identifier and quarters will be represented as year, quarter tuples e.g. (2002,3) = 3Q2002. 
@@ -13,9 +14,8 @@ The advantage to this classification approach is that it will capture idiosyncra
 Classification will be based on threshold return levels, which will be expressed as an ordered list [t1, t2, t3]. The (c,q,d) tuple will be assigned to the first threshold for which relative return <= threshold level, where assignment means returning the 0-based index of the threshold. If the return is greater than the maximum threshold level, then it will return the index of the max threshold + 1 (i.e. returns len(thresholds)). 
 '''
 
-thresholds = [-.6, -.4, -.2, 0, .2, .4, .6, .8, 1]
-durations = [1, 5, 20, 40, 80, 160, 240, 480]
-# 1 day, 1 week, 1 month, 2 month, 4 month, 8 month, 12 month, 24 month
+thresholds = [-.4, .15] # Represents 3 classes: (-Inf, -40%), (-40%, 15%), (15%, Inf)
+durations = [1, 20, 40]
 # Returns compared to threshold values are annualized returns relative to industry, rather than raw rates of return 
 
 def annualize_return(rate_of_return, duration):
@@ -23,24 +23,24 @@ def annualize_return(rate_of_return, duration):
     trading_days_per_year = 252
     return rate_of_return ** (trading_days_per_year/float(duration))
 
-def training_classification(company, document, durations, thresholds):
+def training_classification(company, date, durations, thresholds):
     ticker = company.ticker
     SIC    = company.SIC
-    sector = company.sector
-    start  = next_trading_day(document.filingdate)
+    #sector = company.sector
+    start  = next_trading_day(ticker, date)
     # Requires a next_trading_day module
     classifications = []
     for duration in durations:
         try:
             stock_return  = get_stock_return(ticker, start, end)
             sic_return    = get_sic_return(SIC, start, end)
-            sector_return = get_sector_return(sector, start, end)
-            baseline_return = weight_sicsector(SIC, sic_return, sector, sector_return)
-            relative_return = stock_return - baseline_return
+            #sector_return = get_sector_return(sector, start, end)
+            #baseline_return = weight_sicsector(SIC, sic_return, sector, sector_return)
+            relative_return = stock_return - sic_return
             ann_relative_return = annualize_return(relative_return, duration)
             classif = threshold_sieve(ann_relative_return, thresholds)
             classifications.append(classif)
-        except FutureError:
+        except StockRangeError:
             classifications.append(None)
 
 def threshold_sieve(val, thresholds):
@@ -48,6 +48,66 @@ def threshold_sieve(val, thresholds):
         if val <= thresholds[i]:
             return i
     return i+1
+
+
+def classify_multinomial(text, groups, psuedocount):
+    """Classifies a text into one of the provided groups, given a psuedocount.
+    
+    Returns a tuple containing the chosen group and the difference in log-
+    likelihood between the chosen group and the second best option 
+    (for validation purposes and perhaps confidence estimation).
+    
+    """
+    comparisons = {}
+    for group in groups:
+        comparisons[group] = likelihood_comparison(text, group, psuedocount)    
+    max  = float("-inf")
+    second_max = float("-inf")
+    
+    #Want to find the maximum LLV (to classify the group) and the second-maximum
+    #LLV (to report the difference)
+    for group in comparisons:
+        if comparisons[group] > second_max:
+            if comparisons[group] > max:
+                second_max = max
+                max = comparisons[group]
+                classification = group
+            else:
+                second_max = comparisons[group]
+    
+    diff = max - second_max
+    assert diff > 0
+    return (classification, diff, max)
+        
+        
+def multinomial_LLV(text, (group_dict, wordcount), psuedocount):
+    """Generates log-likelihood that given Text came from given TextGroup.
+    
+    Note that likelihood function has no absolute meaning, since it is a log-
+    likelihood with constants disregarded. Instead, the return value may be 
+    used as a basis for comparison to decide which TextGroup is more likely to 
+    contain the Text. 
+    
+    """
+    #Make local copies of the dictionaries so we can alter them without causing problems
+    theta_dict = copy.copy(group_dict)
+    
+    numWords = float(wordcount + psuedocount * len(group_dict))
+    # Need to add psuedocounts since log(0) is undefined (or in orig. multinomial model abset the log transformation, multiplying by a 0 factor would force the result to 0)
+    for word in theta_dict:
+        theta_dict[word] += psuedocount
+    for word in text.dict:
+        if word not in theta_dict:
+            theta_dict[word] = psuedocount
+            numWords += psuedocount
+    theta = {}
+    for word in theta_dict:
+        theta[word] = theta_dict[word] / numWords
+
+    loglikelihood = 0
+    for word in text.dict:
+        loglikelihood += text.dict[word] * math.log(theta[word])                
+    return loglikelihood
 
 
 
