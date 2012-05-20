@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys, logging, string
-from parser import DocError, parse_quarterly_filing
+from parser import DocError, parse_quarterly_filing, build_word_count
 from pdb import set_trace as debug
 from os.path import basename
 #import stock
@@ -46,11 +46,26 @@ class Manager(object):
                 print e
                 safelink(docpath, self.DataDir + 'Exceptions/' + basename(docpath))
 
-    def active_dir(self, pathname):
-        os.chdir(self.DataDir + pathname)
-
     def process(self):
         os.chdir(self.DataDir + 'Preprocessed')
+        for CIK in os.listdir('.'):
+            if CIK[0] = '.' or not os.path.isdir(CIK):
+                continue
+            if CIK in self.goodCIKs:
+                company = self.load_company(CIK, SIC)
+                ensure(self.DataDir + '/Active/' + CIK)
+                for filing in os.listdir(CIK):
+                    (header, filer, rawtext) = parse_quarterly_filing(CIK + '/' + filing)
+                    company.properties(filer)
+                    date = header['FilingDate']
+                    company.add_document(self, date, rawtext)
+                    safelink(CIK + '/' + filing, self.DataDir + '/Active/' + CIK + '/' + filing)
+                self.save_company(company)
+                del company
+            else:
+                ensure(self.DataDir + '/Inactive/' + CIK)
+                for filing in os.listdir(CIK):
+                    safelink(CIK + '/' + filing, self.DataDir + '/Inactive/' + CIK + filing)
 
 
                     # if CIK in self.good_CIKs:
@@ -73,25 +88,42 @@ class Manager(object):
                 company = pickle.load(f)
         else:
             company = Company(CIK, SIC)
-            self.active_companies[CIK] = company
             try: 
                 self.industries[SIC].append(company)
             except KeyError:
-                self.industries[SIC] = company
+                self.industries[SIC] = [company]
+
+    def save_company(self, company):
+        with open(self.DataDir + '/Pickles/' + company.CIK + '.dat') as f:
+            pickle.dump(company, f, 2)
 
 
 
 class Company(object):
     def __init__(self, CIK, SIC):
         self.CIK = CIK
-        self.industry = SIC
+        self.SIC = SIC
+        self.name = ''
+        self.dates = []
+        self.filings = {}
 
-    def properties(self, propdict):
+    def properties(self, filers):
         # If company has no properties, then add them. If not, check for discrepancies
+        for filerdict in filers:
+            if filerdict['CIK'] == self.CIK:
+                if filerdict['SIC'] != self.SIC:
+                    logging.warning("Company switched SICs: CIK: %s SIC: %d", % (CIK, SIC))
+                cname = filerdict['CompanyName']
+                if self.name == '':
+                    self.name = cname
+                elif self.name != cname:
+                    logging.warning("Company switched names: %s %s" % (self.name, cname))
+                break
+
+
+    def add_document(self, filing_date, raw_text):
         pass
 
-    def add_document(self, (wordcount, numwords)):
-        pass
 
 def recursive_file_gen(mydir):
     for root, dirs, files in os.walk(mydir):
