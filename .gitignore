@@ -1,7 +1,14 @@
-Data/*
+Data/Processed/*
+Data/Unprocessed/*
+Data/Exceptions/*
+Data/Active/*
+Data/Inactive/*
+Data/Pickles/CIKs*
 testdoc
 *.csv
 *.pyc
 *.log
-*.dat
 TestData/*
+good_CIK.txt
+Utilities/*.dat
+Utilities/generate_CIKTicker_mapping.py

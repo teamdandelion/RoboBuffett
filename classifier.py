@@ -34,8 +34,8 @@ def training_classification(company, date, durations, thresholds):
         try:
             stock_return  = get_stock_return(ticker, start, end)
             sic_return    = get_sic_return(SIC, start, end)
-            #sector_return = get_sector_return(sector, start, end)
-            #baseline_return = weight_sicsector(SIC, sic_return, sector, sector_return)
+            # sector_return = get_sector_return(sector, start, end)
+            # baseline_return = weight_sicsector(SIC, sic_return, sector, sector_return)
             relative_return = stock_return - sic_return
             ann_relative_return = annualize_return(relative_return, duration)
             classif = threshold_sieve(ann_relative_return, thresholds)
@@ -92,6 +92,8 @@ def multinomial_LLV(text, (group_dict, wordcount), psuedocount):
     #Make local copies of the dictionaries so we can alter them without causing problems
     theta_dict = copy.copy(group_dict)
     
+    #DO psuedocount biasing beforehand
+
     numWords = float(wordcount + psuedocount * len(group_dict))
     # Need to add psuedocounts since log(0) is undefined (or in orig. multinomial model abset the log transformation, multiplying by a 0 factor would force the result to 0)
     for word in theta_dict:
