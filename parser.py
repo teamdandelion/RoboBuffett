@@ -45,9 +45,14 @@ def parse_quarterly_filing(filepath):
     header =  parse_fields(header_text, header_info)
     filers_parse = [parse_fields(x, filer_info) for x in filers]
 
+    for filer in filers_parse:
+        filer['SIC'] = force_to_int(filer['SIC'])
+        
     filers = {}
     for filer in filers_parse:
         filers[filer['CIK']] = filer
+
+
 
     #word_count = build_word_count(document_text)
 
@@ -80,6 +85,8 @@ def parse_fields(header, property_info):
         for (name, identifier) in property_info:
             if line.startswith(identifier):
                 content = line.partition(identifier)[2].strip()
+                if content == '':
+                    raise DocError('Empty field: %s' % name)
                 # Take the content after the identifier, and strip whitespace
                 properties[name] = content
     if len(properties) != len(property_info):
@@ -90,3 +97,14 @@ def parse_fields(header, property_info):
         raise DocError('Missing fields: %s' % missing_fields)
 
     return properties
+
+def force_to_int(val):
+    try:
+        converted = int(val)
+    except ValueError:
+        to_remove = string.punctuation + string.letters + string.whitespace
+        forced_val = val.translate(None, (to_remove))
+        if forced_val == '':
+            raise DocError('Unable to convert SIC to #: %s' % val)
+        converted = int(forced_val)
+    return converted
