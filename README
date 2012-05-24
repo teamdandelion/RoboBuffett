@@ -1,0 +1,18 @@
+Modules:
+
+Scraper (Izaak):
+Pull SEC documents from EDGAR. 
+
+Stock (Ahmad):
+Get stock prices and maintain CIK<->Ticker mapping.
+
+Manager (Dan): 
+Manage & organize data. Manages parsing, serialization, classification, and testing. 
+
+Parser (Dan):
+Parse SEC filings, getting header info and document text. 
+
+Classifier (Dan):
+Generate training classifications for documents, calls on Stock. Called by manager.
+
+To be added: Multinomial model generator, LLV (log likelihood value) classifier. To be maintained by Dan.
