@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys, logging, string, time
-from parser import DocError, parse_quarterly_filing, build_word_count
+from parser import ParseError, parse_quarterly_filing, build_word_count
 from pdb import set_trace as debug
 from os.path import basename
 Path = os.path.join
@@ -11,20 +11,24 @@ except:
     import pickle
 #import stock
 
+
 def main():
+# Todo: Implement better UI
     DataDir = os.path.expanduser('~/Documents/Code/RoboBuffett/Data/')
     logfile = DataDir + '../Logs/manager.log'
     touch(logfile)
     logging.basicConfig(filename=logfile, level=logging.DEBUG)
     manager = load_manager(DataDir)
-    manager.preprocess()
-    manager.process()
-    save_manager(manager)
-    save_industry_dict(manager)
+    #manager.preprocess()
+    #manager.process()
+    #save_manager(manager)
+    #save_industry_dict(manager)
+    pretty_dict(manager.industries)
     manager.print_stats()
-    
+
 
 def load_manager(DataDir):
+    '''Load the manager from desk if it's available, or generate a new Manager instance if not'''
     try:
         with open(DataDir + 'Pickles/manager.dat', 'r') as f:
             return pickle.load(f)
@@ -32,76 +36,122 @@ def load_manager(DataDir):
         return Manager(DataDir)
 
 def save_manager(manager):
+    '''Saves the manager to disk'''
     with open(manager.DataDir + 'Pickles/manager.dat', 'w') as f:
             pickle.dump(manager, f, 2)
 
 def save_industry_dict(manager):
+    '''Saves industry dict, useful for generating price indices'''
     with open(manager.DataDir + 'Pickles/industrydict.dat', 'w') as f:
         pickle.dump(manager.industries, f, 0)
 
 class Manager(object):
-    def __init__(self, DataDir):
-        os.chdir(DataDir)
-        ensure('Pickles/')
-        ensure('Pickles/CIKs')
-        ensure('Active/')
-        ensure('Inactive/')
-        ensure('Unprocessed/')
-        ensure('Preprocessed/')
-        ensure('Processed/')
-        ensure('Exceptions/')
-        self.industries = {} # Mapping from SIC->CIK
-        self.DataDir = DataDir
-        self.CIK_to_Ticker = dePickle('Pickles/CIK_Ticker.dat') # Mapping from CIK -> Ticker
-        self.good_CIKs     = set(self.CIK_to_Ticker.iterkeys()) # Set of all CIKs with assosc. tickers
-        self.active_CIKs   = set() # Set of all CIKs found in dataset with all assosc. tickers. Represented in the 'Active' directory
-        self.inactive_CIKs = set() # Set of all CIKs found in the dataset without assosc. tickers. Represented in the 'Inactive' directory
-        self.processed_documents = set() # Set of all documents that have been processed by the manager.  
-        self.valid_documents     = set() # Set of all documents that parsed properly
-        self.exception_documents = set() # Set of all documents that failed to parse properly
-        self.active_documents    = set() # Set of all valid documents with assosc. ticker
-        self.inactive_documents  = set() # Set of all valid documents w/o assosc. ticker
+    """Persistent object that manages the entire dataset
+    Functionality overview:
+    init         = Basic setup
+    preprocess   = Vital step that organizes documents by CIK. Moves 
+                   unparseable documents to 'Exceptions'
+    process      = Process documents in Data/Preprocessed. Create company
+                   entries containing parsed word counts. Moves documents
+                   to 'Active' or 'Inactive'
+    print_stats  = Print a bunch of statistics about the manager
+    
+    Terminology:
+    CIK: Central Index Key, used as unique identifiers for companies
+    SIC: Standard Industrial Code, SEC's industry designators
+    good CIK: a CIK for which we have stock price information
+    active CIK: a CIK in the document dataset which is good
+    inactive CIK: a CIK in the document dataset which isn't good
+    processed documents: have been run thru the pre-processor
+    exception documents: they didn't parse
+    active documents: 'owned' by an active CIK
+    inactive documents: not owned by an active CIK
+    valid documents: union of active and inactive documents
 
-    def print_stats(self):
-        good       = len(self.good_CIKs)
-        active     = len(self.active_CIKs)
-        inactive   = len(self.inactive_CIKs)
-        sics       = len(self.industries.keys())
-        proc       = len(self.processed_documents)
-        valid      = len(self.valid_documents)
-        exceptions = len(self.exception_documents)
-        activeD    = len(self.active_documents)
-        inactiveD  = len(self.inactive_documents)
-        try:
-            print "%d good CIKs, %d active CIKs, %d inactive CIKs" % (good, active, inactive)
-            print "%.2f of observed CIKs are active, %.2f of good CIKs are active" % (active / float(active + inactive), active / float(good))
-            print "%d SICs, average of %1.2f active CIKs per SIC" % (sics, active / float(sics))
-            print "%d processed documents, %d valid, %d exceptions" % (proc, valid, exceptions)
-            print "Implied: %1.2f CIKs per document, %.2f exception rate" % (valid / float(proc - exceptions), exceptions / float(proc)) 
-            print "%d active documents, %d inactive, %.2f activation rate" % (activeD, inactiveD, activeD / float(proc)) 
-        except ZeroDivisionError:
-            print "Please run the manager on some files before printing stats"
+
+    """
+    def __init__(self, DataDir):
+        ### Set up directory structure ###
+        self.DataDir = DataDir
+        os.chdir(DataDir)
+        vital_dirs = ('Pickles/','Pickles/CIKs','Active/','Inactive/',
+            'Unprocessed/','Preprocessed/','Processed/','Exceptions/')
+        map(ensure, vital_dirs) # Make sure they all exist
+
+        ### Mappings ###
+        self.industries = {} # Mapping from SIC->[CIK]
+        self.CIK_to_Ticker = dePickle('Pickles/CIK_Ticker.dat') 
+
+        ### Sets ###
+        self.good_CIKs     = set(self.CIK_to_Ticker.iterkeys()) 
+        self.active_CIKs   = set() 
+        self.CIK2date = {} # Map from active CIKs to documents (the dates)
+        self.inactive_CIKs = set() 
+        self.processed_docs = set() 
+        # Original names of all documents processed by the manager.
+        # Maintained to avoid double-counting documents. 
+        self.valid_docs     = set() 
+        
+        # Invariant: len(processed) >= len(valid) - len(exception)
+        # This is because for every processed document, the parser 
+        # either fails and generates an exception, or succeeds and 
+        # creates 1 or more valid documents corresponding to the 
+        # number of valid filers (unique CIKs) found in the document.
+        self.exception_docs = set() 
+        self.active_docs    = set() 
+        self.inactive_docs  = set() 
+
 
     def preprocess(self):
+        """Preprocess the documents in Data/Unprocessed 
+        Finds a doc's CIKs and creates hard links in the folder 
+        Preprocessed/CIK. If a doc doesn't parse properly, it is 
+        moved to Data/Exceptions instead. 
+        The pre-processing step allows us to consider only one CIK 
+        at a time during the processing step, for memory efficiency.
+        """
+        n_proc = 0
+        n_valid = 0
+        n_except = 0
         start = time.time()
         os.chdir(self.DataDir + 'Unprocessed/')
         for (docpath, docname) in recursive_file_gen('.'):
-        # Returns (path, filename) tuples for all files in directory and subdirectories that don't begin with '.' or '_'
-            if docname in self.processed_documents: continue
-            self.processed_documents.add(docname) # Assumes that docnames are unique
+        # Returns (path, filename) tuples for all files in directory 
+        # and subdirectories that don't begin with '.' or '_'
+            if docname in self.processed_docs: continue
+            self.processed_docs.add(docname) 
+            n_proc += 1
+            # Code assumes that docnames are unique
             try:
-                (header, filers, _) = parse_quarterly_filing(docpath)
+                (header, cik2filers, _) = parse_quarterly_filing(docpath)
+                # Returns (but doesn't process) the raw text. 
                 date     = header['FilingDate']
                 doctype  = header['DocType']
-                for CIK in filers.iterkeys():
-                    docname = CIK + '_' + date + '.txt'
+                for CIK in cik2filers.iterkeys():
+                    new_docname = CIK + '_' + date + '.txt'
                     ensure(self.DataDir + 'Preprocessed/' + CIK)
-                    safelink(docpath, self.DataDir + 'Preprocessed/' + CIK + '/' + docname)
-                    self.valid_documents.add(docname)
-            except DocError as e:
-                self.exception_documents.add(docname)
-                logging.exception(e)
+                    safelink(docpath, self.DataDir + 'Preprocessed/' + CIK + '/' + new_docname)
+                    if new_docname in self.valid_docs:
+                        print "Repeated doc: %s" % new_docname
+                    self.valid_docs.add(new_docname)
+                    n_valid += 1
+                if n_valid != len(self.valid_docs):
+                    pass#debug()
+
+            except ParseError as e:
+                self.exception_docs.add(docname)
+                n_except += 1
+                logging.warning(docname + ": " + str(e))
                 safelink(docpath, self.DataDir + 'Exceptions/' + basename(docpath))
+
+
+            # if n_proc > n_valid + n_except:
+            #     print "Warning: proc %d, valid %d, except %d" % (n_proc, n_valid, n_except)
+            # elif n_proc % 100 == 0:
+            #     print "Proc %d, valid %d, except %d, combined %d" % (n_proc, n_valid, n_except, n_valid + n_except)
+            #     if n_proc != len(self.processed_docs) or n_valid != len(self.valid_docs) or n_except != len(self.exception_docs):
+            #         debug()
+
         end = time.time()
         print "Time elapsed in preprocessing: %.1f" % (end-start)
 
@@ -115,13 +165,16 @@ class Manager(object):
                 self.active_CIKs.add(CIK)
                 company = self.load_company(CIK)
                 ensure(self.DataDir + 'Active/' + CIK)
+                if CIK not in self.CIK2date:
+                    self.CIK2date[CIK] = []
                 for filing in os.listdir(CIK):
                     filingpath = CIK + '/' + filing
                     (header, filers, rawtext) = parse_quarterly_filing(filingpath)
                     company.properties(filers)
                     date = header['FilingDate']
                     company.add_document(date, rawtext)
-                    self.active_documents.add(filing)
+                    self.CIK2date[CIK].append(date)
+                    self.active_docs.add(filing)
                     os.rename(filingpath, self.DataDir + 'Active/' + filingpath)
                 self.save_company(company)
                 SIC = company.SIC
@@ -131,17 +184,33 @@ class Manager(object):
                         self.industries[SIC].append(CIK)
                 except KeyError:
                     self.industries[SIC] = [CIK]
-                del company # Get it out of memory. Probably unnecessary since the company name gets reassigned in next iteration of the loop for a good CIK and the garbage collector can spot that its reference count goes to 0.
+                del company # Get it out of memory. Probably unnecessary
 
             else: # if CIK not in self.goodCIKs
                 self.inactive_CIKs.add(CIK)
                 ensure(self.DataDir + 'Inactive/' + CIK)
                 for filing in os.listdir(CIK):
-                    self.inactive_documents.add(filing)
-                    os.rename(CIK + '/' + filing, self.DataDir + 'Inactive/' + CIK + filing)
+                    self.inactive_docs.add(filing)
+                    os.rename(CIK +'/'+ filing, 
+                        self.DataDir + 'Inactive/' + CIK +'/'+ filing)
             os.removedirs(CIK)
         end = time.time()
         print "Time elapsed in processing: %.1f" % (end-start)
+
+    def gen_training_set(self, cutoff, skipyears):
+        self.training_set = {}
+        for CIK, dates in self.CIK2date:
+            if random.random() > cutoff: continue
+            datelist = []
+            for date in dates:
+                if date not in skipyears:
+                    datelist.append(date)
+            if datelist != []:
+                self.training_set[CIK] = datelist
+
+
+
+
 
 
     def load_company(self, CIK):
@@ -160,6 +229,25 @@ class Manager(object):
         with open(self.DataDir + 'Pickles/CIKs/' + company.CIK + '.dat', 'w') as f:
             pickle.dump(company, f, 2)
 
+    def print_stats(self):
+        good       = len(self.good_CIKs)
+        active     = len(self.active_CIKs)
+        inactive   = len(self.inactive_CIKs)
+        sics       = len(self.industries.keys())
+        proc       = len(self.processed_docs)
+        valid      = len(self.valid_docs)
+        exceptions = len(self.exception_docs)
+        activeD    = len(self.active_docs)
+        inactiveD  = len(self.inactive_docs)
+        try:
+            safeprint("%d good CIKs, %d active CIKs, %d inactive CIKs" % (good, active, inactive))
+            safeprint("%.2f of observed CIKs are active, %.2f of good CIKs are active" % (active / float(active + inactive), active / float(good)))
+            safeprint("%d SICs, average of %1.2f active CIKs per SIC" % (sics, active / float(sics)))
+            safeprint("%d processed documents, %d valid, %d exceptions" % (proc, valid, exceptions))
+            safeprint("Implied: %1.2f CIKs per document, %.2f exception rate" % (valid / float(proc - exceptions), exceptions / float(proc)))
+            safeprint("%d active documents, %d inactive, %.2f activation rate" % (activeD, inactiveD, activeD / float(proc)))
+        except ZeroDivisionError:
+            safeprint("Please run the manager on some files before printing stats")
 
 class Company(object):
     def __init__(self, CIK):
@@ -214,6 +302,19 @@ def dePickle(filestr):
     with open(filestr, 'r') as f:
         return pickle.load(f)
 
+def safeprint(string):
+    try:
+        print string
+    except:
+        pass
+
+def pretty_dict(output):
+    lenlist = []
+    for key, val in output.iteritems():
+        lenlist.append((key,len(val)))
+    lenlist = sorted(lenlist, key=lambda student: student[1])
+    for (sic, i) in lenlist:
+        print str(sic) + ('*' * i)
 
 if __name__ == "__main__":
     main()

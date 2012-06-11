@@ -50,6 +50,20 @@ def threshold_sieve(val, thresholds):
     return i+1
 
 
+def create_classification_set(manager, thresholds, durations):
+    # Take a manager, thresholds, durations
+    # Choose a 'training set' of Company/Date pairs (i.e. document references)
+    # Generate a classification set for each duration
+    # Classify each Company/Date pair into a threshold group for each duration
+    # Return the d sets (d = |durations|)
+    
+
+def generate_classification_model(TODO):
+    # Take a classification set and the manager
+    # Generate a group dictionary for the set
+    # Adjust for psuedocount
+    pass
+
 def classify_multinomial(text, groups, psuedocount):
     """Classifies a text into one of the provided groups, given a psuedocount.
     
