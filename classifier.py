@@ -24,6 +24,8 @@ def annualize_return(rate_of_return, duration):
     return rate_of_return ** (trading_days_per_year/float(duration))
 
 def training_classification(company, date, durations, thresholds):
+    # Takes a company, a start date (i.e. date of filing), a list of investment durations, and a list of thresholds
+    # Returns a classification for each duration, with classification corresponding to one of the thresholds
     ticker = company.ticker
     SIC    = company.SIC
     #sector = company.sector

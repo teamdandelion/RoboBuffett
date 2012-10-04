@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os, sys, logging, string, time
+import os, sys, logging, string, time, math
 from parser import ParseError, parse_quarterly_filing, build_word_count
 from pdb import set_trace as debug
 from os.path import basename
@@ -275,6 +275,29 @@ class Company(object):
     def add_document(self, filing_date, raw_text):
         self.dates.append(filing_date)
         self.docs[filing_date] = build_word_count(raw_text)
+
+
+def proportional_set_intersection(sets, p):
+    # Takes a list of sets: [Set1, Set2, Set3].
+    # s = len(sets)
+    # Returns a set containing every element which was in at least p proportion of the sets, i.e. there were at least s * p instances in the sets
+    count = {}
+    for sett in sets:
+        for element in sett:
+            try:
+                count[element] += 1
+            except KeyError:
+                count[element]  = 1
+
+    s = len(sets)
+    n = math.floor(s * p)
+
+    outset = set()
+    for key,val in count.iteritems():
+        if val > n:
+            outset.add(key)
+
+
 
 
 def recursive_file_gen(mydir):
