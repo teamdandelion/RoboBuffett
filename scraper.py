@@ -38,7 +38,7 @@ def download_index_files(out_dir):
              '2001', '2002', '2003', '2004', 
              '2005', '2006', '2007', '2008', 
              '2009', '2010', '2011', '2012']
-    
+
     quarters = ['QTR1', 'QTR2', 'QTR3', 'QTR4']
 
     # Get the current working directory so that we can change it
@@ -70,10 +70,10 @@ def paths_for_10ks(index_file):
     lines = index_file.read().splitlines()
     lines = split_list(lines, '-+$', lambda a, b: re.match(b, a))[1]
     for line in lines:
-        if line[:4] == '10-K':
+        if line[:4] == '10-K' or line[:4] == '10-Q':
             fields = re.split('\s\s+', line)
             company, date, server_path = (fields[1], fields[3], fields[4])
-            paths.append((server_path, '{0}_{1}'.format(company, date)))
+            paths.append((server_path, '{0}_{1}_{2}'.format(company.replace('/', '-'), date, fields[0].replace('/','-'))))
     return paths
 
 def download_forms_serially(paths):
