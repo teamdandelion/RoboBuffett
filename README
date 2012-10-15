@@ -1,3 +1,5 @@
+Project goal: Predict future stock performance based on textual analysis of SEC filings. 
+
 Modules:
 
 Scraper (Izaak):
@@ -12,7 +14,7 @@ Manage & organize data. Manages parsing, serialization, classification, and test
 Parser (Dan):
 Parse SEC filings, getting header info and document text. 
 
-Classifier (Dan):
+Classifier (Ahmad):
 Generate training classifications for documents, calls on Stock. Called by manager.
 
 To be added: Multinomial model generator, LLV (log likelihood value) classifier. To be maintained by Dan.

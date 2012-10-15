@@ -14,6 +14,21 @@ The advantage to this classification approach is that it will capture idiosyncra
 Classification will be based on threshold return levels, which will be expressed as an ordered list [t1, t2, t3]. The (c,q,d) tuple will be assigned to the first threshold for which relative return <= threshold level, where assignment means returning the 0-based index of the threshold. If the return is greater than the maximum threshold level, then it will return the index of the max threshold + 1 (i.e. returns len(thresholds)). 
 '''
 
+'''Process description:
+C = |thresholds| = number of different classifications
+For each investment horizon ('Duration'):
+Generate C sets, where each set contains pointers to documents which fall into this classification
+Then we need to convert each set of documents into a dictionary of wordcounts
+We want to use only 'common' terms, e.g. nix terms specific to an individual company like "Chlorox" or "Swiffer"
+Need to generate a set of all "common" words that we will include in classifiers
+
+
+
+
+
+'''
+
+
 thresholds = [-.4, .15] # Represents 3 classes: (-Inf, -40%), (-40%, 15%), (15%, Inf)
 durations = [1, 20, 40]
 # Returns compared to threshold values are annualized returns relative to industry, rather than raw rates of return 
@@ -95,6 +110,11 @@ def classify_multinomial(text, groups, psuedocount):
     assert diff > 0
     return (classification, diff, max)
         
+
+# Handling psuedocount classifications:
+# Generate classification groups 'pure' with word-counts rather than thetas
+# Generate set of all words in all documents
+# Ensure that each classification group has 
         
 def multinomial_LLV(text, (group_dict, wordcount), psuedocount):
     """Generates log-likelihood that given Text came from given TextGroup.
@@ -103,7 +123,6 @@ def multinomial_LLV(text, (group_dict, wordcount), psuedocount):
     likelihood with constants disregarded. Instead, the return value may be 
     used as a basis for comparison to decide which TextGroup is more likely to 
     contain the Text. 
-    
     """
     #Make local copies of the dictionaries so we can alter them without causing problems
     theta_dict = copy.copy(group_dict)
@@ -111,7 +130,7 @@ def multinomial_LLV(text, (group_dict, wordcount), psuedocount):
     #DO psuedocount biasing beforehand
 
     numWords = float(wordcount + psuedocount * len(group_dict))
-    # Need to add psuedocounts since log(0) is undefined (or in orig. multinomial model abset the log transformation, multiplying by a 0 factor would force the result to 0)
+    # Need to add psuedocounts since log(0) is undefined (or in orig. multinomial model absent the log transformation, multiplying by a 0 factor would force the result to 0)
     for word in theta_dict:
         theta_dict[word] += psuedocount
     for word in text.dict:

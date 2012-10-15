@@ -4,6 +4,7 @@ Data/Exceptions/*
 Data/Active/*
 Data/Inactive/*
 Data/Pickles/CIKs*
+Data/2001/*
 testdoc
 *.csv
 *.pyc

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
-import os, sys, logging, string, time, math
-from parser import ParseError, parse_quarterly_filing, build_word_count
+# Current Status: Shift to SQL database instead of ad-hoc python class in progress.
+
+import os, sys, logging, string, time, math, rb_parser
+from rb_parser import ParseError
 from pdb import set_trace as debug
 from os.path import basename
 Path = os.path.join
@@ -21,10 +23,13 @@ def main():
     manager = load_manager(DataDir)
     #manager.preprocess()
     #manager.process()
-    #save_manager(manager)
-    #save_industry_dict(manager)
+    [for co in manager.]
+
+    save_manager(manager)
+    save_industry_dict(manager)
     pretty_dict(manager.industries)
     manager.print_stats()
+
 
 
 def load_manager(DataDir):
@@ -100,6 +105,7 @@ class Manager(object):
         self.exception_docs = set() 
         self.active_docs    = set() 
         self.inactive_docs  = set() 
+        self.company_word_sets = []
 
 
     def preprocess(self):
@@ -123,7 +129,7 @@ class Manager(object):
             n_proc += 1
             # Code assumes that docnames are unique
             try:
-                (header, cik2filers, _) = parse_quarterly_filing(docpath)
+                (header, cik2filers, _) = rb_parser.parse_quarterly_filing(docpath)
                 # Returns (but doesn't process) the raw text. 
                 date     = header['FilingDate']
                 doctype  = header['DocType']
@@ -158,8 +164,9 @@ class Manager(object):
     def process(self):
         start = time.time()
         os.chdir(self.DataDir + 'Preprocessed')
+        # Iterate through all the preprocessed CIKs
         for CIK in os.listdir('.'):
-            if CIK[0] == '.' or not os.path.isdir(CIK): pass
+            if CIK[0] == '.' or not os.path.isdir(CIK): continue
 
             if CIK in self.good_CIKs:
                 self.active_CIKs.add(CIK)
@@ -169,13 +176,18 @@ class Manager(object):
                     self.CIK2date[CIK] = []
                 for filing in os.listdir(CIK):
                     filingpath = CIK + '/' + filing
-                    (header, filers, rawtext) = parse_quarterly_filing(filingpath)
-                    company.properties(filers)
+                    (header, filers, rawtext) = rb_parser.parse_quarterly_filing(filingpath)
+                    company.properties(filers) 
+                    # Update company properties with info taken from the 'filers' part of the document
                     date = header['FilingDate']
                     company.add_document(date, rawtext)
+                    # Creates a word dictionary and wordcount from the raw text returned by the parser
                     self.CIK2date[CIK].append(date)
                     self.active_docs.add(filing)
                     os.rename(filingpath, self.DataDir + 'Active/' + filingpath)
+                    # Move the filing to the 'Active' directory - note this means atm all parsed data is stored in the directory structure
+                company.build_wordset()
+                self.company_word_sets.append(company.wordset)
                 self.save_company(company)
                 SIC = company.SIC
                 
@@ -197,6 +209,9 @@ class Manager(object):
         end = time.time()
         print "Time elapsed in processing: %.1f" % (end-start)
 
+    def generic_word_set(self, proportion):
+        self.generic_word_set = proportional_set_intersection(self.company_word_sets, proportion)
+
     def gen_training_set(self, cutoff, skipyears):
         self.training_set = {}
         for CIK, dates in self.CIK2date:
@@ -207,10 +222,6 @@ class Manager(object):
                     datelist.append(date)
             if datelist != []:
                 self.training_set[CIK] = datelist
-
-
-
-
 
 
     def load_company(self, CIK):
@@ -250,12 +261,15 @@ class Manager(object):
             safeprint("Please run the manager on some files before printing stats")
 
 class Company(object):
+    """Keeps track of a single company (as identified by CIK). 
+    Contains CIK, SIC classification (if any), name, a list of filingdates, a mapping from filing dates to document parses, and a set of all words used by this company in any document."""
     def __init__(self, CIK):
         self.CIK = CIK
         self.SIC = 0
         self.name = ''
         self.dates = []
         self.docs = {} # (count_dict, #words) tuples are indexed by filingdate
+        self.wordset = set()
 
     def properties(self, filers):
         # If company has no properties, then add them. If not, check for discrepancies
@@ -274,7 +288,15 @@ class Company(object):
 
     def add_document(self, filing_date, raw_text):
         self.dates.append(filing_date)
-        self.docs[filing_date] = build_word_count(raw_text)
+        word_count, n_words = rb_parser.build_word_count(raw_text)
+        self.docs[filing_date] = (word_count, n_words)
+        self.wordset |= word_count.viewkeys()
+
+    def rebuild_wordset(self):
+        #Should build a set containing every word which exists in at least one filing
+        #This is done automatically as documents are added; should only be called if you have some reason to rebuild the entire set
+        for (word_dict, numwords) in self.docs.itervalues():
+            self.wordset |= word_dict.viewkeys()
 
 
 def proportional_set_intersection(sets, p):
@@ -298,7 +320,7 @@ def proportional_set_intersection(sets, p):
             outset.add(key)
 
 
-
+# Utility functions
 
 def recursive_file_gen(mydir):
     for root, dirs, files in os.walk(mydir):
